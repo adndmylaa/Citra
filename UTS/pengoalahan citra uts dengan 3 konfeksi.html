@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Konversi Gambar</title>
+  <style>
+    /* Gaya tampilan umum halaman */
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    /* Tampilan input file */
+    input[type="file"] {
+      padding: 10px;
+      margin: 10px 0;
+      border: 2px solid #ccc;
+      border-radius: 5px;
+      background-color: white;
+    }
+
+    /* Gaya untuk canvas gambar */
+    canvas {
+      margin: 10px;
+      border: 2px solid #aaa;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Tampilan tombol */
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 16px;
+      margin: 10px 5px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    /* Container untuk canvas */
+    #canvasContainer {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Responsive canvas untuk layar kecil */
+    @media (max-width: 600px) {
+      canvas {
+        width: 100%;
+        height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>Konversi Citra: Grayscale, Biner, Terindeks</h2>
+
+  <!-- Input untuk memilih file gambar -->
+  <input type="file" accept="image/*" onchange="loadImage(event)">
+
+  <!-- Tempat menampilkan gambar asli dan hasil konversi -->
+  <div id="canvasContainer">
+    <canvas id="originalCanvas" width="300" height="300"></canvas>
+    <canvas id="resultCanvas" width="300" height="300"></canvas>
+  </div>
+
+  <!-- Tombol untuk memilih jenis konversi -->
+  <div>
+    <button onclick="convertGrayscale()">Grayscale</button>
+    <button onclick="convertBinary()">Biner</button>
+    <button onclick="convertIndexed()">Terindeks</button>
+  </div>
+
+  <script>
+    // Ambil elemen canvas dan context-nya
+    const originalCanvas = document.getElementById('originalCanvas');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const originalCtx = originalCanvas.getContext('2d');
+    const resultCtx = resultCanvas.getContext('2d');
+    let image = new Image(); // Objek gambar
+
+    // Fungsi untuk memuat gambar dari file input
+    function loadImage(event) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        image.onload = function() {
+          // Atur ukuran canvas sesuai gambar
+          originalCanvas.width = image.width;
+          originalCanvas.height = image.height;
+          resultCanvas.width = image.width;
+          resultCanvas.height = image.height;
+          // Gambar dimuat ke originalCanvas
+          originalCtx.drawImage(image, 0, 0);
+        }
+        image.src = e.target.result; // Set sumber gambar dari file yang dipilih
+      }
+      reader.readAsDataURL(event.target.files[0]);
+    }
+
+    // Fungsi konversi ke grayscale (abu-abu)
+    function convertGrayscale() {
+      const imageData = originalCtx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        // Hitung nilai rata-rata RGB
+        const r = data[i];
+        const g = data[i+1];
+        const b = data[i+2];
+        const gray = Math.floor((r + g + b) / 3);
+        // Set nilai R, G, B menjadi gray
+        data[i] = data[i+1] = data[i+2] = gray;
+      }
+
+      resultCtx.putImageData(imageData, 0, 0); // Tampilkan di resultCanvas
+    }
+
+    // Fungsi konversi ke gambar biner (hitam putih)
+    function convertBinary() {
+      const imageData = originalCtx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+      const data = imageData.data;
+      const threshold = 128; // Ambang batas
+
+      for (let i = 0; i < data.length; i += 4) {
+        // Hitung grayscale dulu
+        const r = data[i];
+        const g = data[i+1];
+        const b = data[i+2];
+        const gray = Math.floor((r + g + b) / 3);
+        // Bandingkan dengan threshold
+        const binary = gray < threshold ? 0 : 255;
+        data[i] = data[i+1] = data[i+2] = binary;
+      }
+
+      resultCtx.putImageData(imageData, 0, 0);
+    }
+
+    // Fungsi konversi ke warna terindeks (menggunakan palet warna)
+    function convertIndexed() {
+      const imageData = originalCtx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+      const data = imageData.data;
+
+      // Palet warna terbatas
+      const palette = [
+        [0, 0, 0],       // hitam
+        [255, 0, 0],     // merah
+        [0, 255, 0],     // hijau
+        [0, 0, 255]      // biru
+      ];
+
+      for (let i = 0; i < data.length; i += 4) {
+        let r = data[i];
+        let g = data[i+1];
+        let b = data[i+2];
+        let minDist = Infinity;
+        let closest = [0, 0, 0];
+
+        // Cari warna terdekat dari palet
+        for (let j = 0; j < palette.length; j++) {
+          let pr = palette[j][0];
+          let pg = palette[j][1];
+          let pb = palette[j][2];
+          let dist = (r - pr)**2 + (g - pg)**2 + (b - pb)**2;
+
+          if (dist < minDist) {
+            minDist = dist;
+            closest = palette[j];
+          }
+        }
+
+        // Set piksel ke warna terdekat
+        data[i] = closest[0];
+        data[i+1] = closest[1];
+        data[i+2] = closest[2];
+      }
+
+      resultCtx.putImageData(imageData, 0, 0);
+    }
+  </script>
+</body>
+</html>
